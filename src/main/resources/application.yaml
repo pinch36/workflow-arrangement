@@ -1,3 +1,28 @@
 spring:
   application:
     name: workflow-arrangement
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.mongo.MongoReactiveAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.metrics.mongo.MongoMetricsAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.mongo.MongoHealthContributorAutoConfiguration
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/your_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 12345678
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+server:
+  port: 8080
+
+knife4j:
+  enable: true
+  openapi:
+    title: chatModel-API
+    description: 模型调用
+    version: 1.0.0
+
+springdoc:
+  packages-to-scan: com.xiaohongshu.governance.traction_agent.application.controller   # 改成你 Controller 所在包，可用逗号分隔多个
