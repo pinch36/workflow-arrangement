@@ -5,7 +5,7 @@
 
 2. dispatcher事件分发
 
-3. llm-controller统一做llm调用
+3. llm-controller统一做llm调用调度器
 
 4. node状态机、生命周期管理
 
