@@ -20,6 +20,7 @@ public class BaseEvent implements EventDefinition {
     private String description;
     private String eventType;
 
+
     @Override
     public String getDescription() {
         return description;
