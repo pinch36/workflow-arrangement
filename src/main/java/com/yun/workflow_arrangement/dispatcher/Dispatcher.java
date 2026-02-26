@@ -1,9 +1,9 @@
 package com.yun.workflow_arrangement.dispatcher;
 
-import com.yun.workflow_arrangement.dispatcher.enums.EventEnums;
 import com.yun.workflow_arrangement.dispatcher.event.BaseEvent;
+import com.yun.workflow_arrangement.dispatcher.event.EventListener;
 
-import java.util.List;
+import java.util.Collection;
 
 /**
  *
@@ -12,14 +12,12 @@ import java.util.List;
  * @date 2026/02/13
  */
 public interface Dispatcher {
-    void sendToUser(BaseEvent event);
-    void sendToWorkflowScheduler(BaseEvent event);
-    void sendToNodeScheduler(BaseEvent event);
-    void sendTollmScheduler(BaseEvent event);
-    void sendToGateWay(BaseEvent event);
+    void sendEvent(BaseEvent event,Class<? extends BaseEvent> eventType);
     void init();
     void end();
-    List<BaseEvent> getEvents(EventEnums eventEnums);
-    void register(BaseEvent event);
-    void unregister(BaseEvent event);
+    Collection<BaseEvent> getEvents(Class<? extends BaseEvent> eventType);
+    void registerEvent(Class<? extends BaseEvent> eventType);
+    void unregisterEvent(Class<? extends BaseEvent> eventType);
+    void registerListener(EventListener eventListener,Class<? extends BaseEvent> eventType);
+    void unregisterListener(EventListener eventListener,Class<? extends BaseEvent> eventType);
 }

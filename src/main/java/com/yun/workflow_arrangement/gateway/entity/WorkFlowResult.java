@@ -16,5 +16,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class WorkFlowResult <T>{
+    private String status;
+    private String message;
     T result;
 }

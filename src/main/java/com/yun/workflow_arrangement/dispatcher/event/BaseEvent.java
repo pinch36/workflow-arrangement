@@ -1,10 +1,12 @@
 package com.yun.workflow_arrangement.dispatcher.event;
 
 
+import com.yun.workflow_arrangement.entity.context.Context;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 /**
  *
@@ -13,13 +15,13 @@ import lombok.NoArgsConstructor;
  * @date 2026/02/13
  */
 @Data
-@Builder
+@SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
 public class BaseEvent implements EventDefinition {
-    private String description;
-    private String eventType;
-
+    protected String description;
+    protected String eventType;
+    protected Context context;
 
     @Override
     public String getDescription() {

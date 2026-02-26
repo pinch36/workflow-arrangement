@@ -16,13 +16,3 @@ spring:
 
 server:
   port: 8080
-
-knife4j:
-  enable: true
-  openapi:
-    title: chatModel-API
-    description: 模型调用
-    version: 1.0.0
-
-springdoc:
-  packages-to-scan: com.xiaohongshu.governance.traction_agent.application.controller   # 改成你 Controller 所在包，可用逗号分隔多个

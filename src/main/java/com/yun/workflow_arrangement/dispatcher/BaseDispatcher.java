@@ -1,25 +1,26 @@
 package com.yun.workflow_arrangement.dispatcher;
 
-import com.yun.workflow_arrangement.dispatcher.enums.EventEnums;
+import cn.hutool.core.collection.ConcurrentHashSet;
+import cn.hutool.json.JSONUtil;
 import com.yun.workflow_arrangement.dispatcher.event.BaseEvent;
 import com.yun.workflow_arrangement.dispatcher.event.EventListener;
+import com.yun.workflow_arrangement.dispatcher.event.gateway.GatewayEvent;
+import com.yun.workflow_arrangement.dispatcher.event.llm.LLMEvent;
+import com.yun.workflow_arrangement.dispatcher.event.node.NodeEvent;
+import com.yun.workflow_arrangement.dispatcher.event.workflow.WorkflowEvent;
 import com.yun.workflow_arrangement.log.Log;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static com.yun.workflow_arrangement.dispatcher.enums.EventEnums.GATEWAY_EVENT;
-import static com.yun.workflow_arrangement.dispatcher.enums.EventEnums.LLM_EVENT;
-import static com.yun.workflow_arrangement.dispatcher.enums.EventEnums.NODE_EVENT;
-import static com.yun.workflow_arrangement.dispatcher.enums.EventEnums.USER_EVENT;
+import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  *
@@ -28,119 +29,48 @@ import static com.yun.workflow_arrangement.dispatcher.enums.EventEnums.USER_EVEN
  * @date 2026/02/14
  */
 @Slf4j
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
+@Component
 public class BaseDispatcher implements Dispatcher {
-    private BlockingDeque<BaseEvent> workFlowEvents;
-    private BlockingDeque<BaseEvent> userEvents;
-    private BlockingDeque<BaseEvent> nodeEvents;
-    private BlockingDeque<BaseEvent> llmEvents;
-    private BlockingDeque<BaseEvent> gatewayEvents;
-    private Map<String, BaseEvent> eventMap = new ConcurrentHashMap<>();
-    private Map<BaseEvent, List<EventListener>> eventListeners = new ConcurrentHashMap<>();
-
+    private final Set<Class<? extends BaseEvent>> eventSet = new ConcurrentHashSet<>();
+    private final Map<Class<? extends BaseEvent>, BlockingDeque<BaseEvent>> events = new ConcurrentHashMap<>();
+    private final Map<Class<? extends BaseEvent>, List<EventListener>> eventListeners = new ConcurrentHashMap<>();
 
     @Override
-    public void sendToUser(BaseEvent event) {
-        if (!check(event)) {
-            Log.error("event type not found");
-            return;
+    public Collection<BaseEvent> getEvents(Class<? extends BaseEvent> eventType) {
+        BlockingDeque<BaseEvent> baseEvents = events.get(eventType);
+        if (baseEvents.isEmpty()) {
+            return Collections.emptyList();
         }
-        userEvents.add(event);
-        eventListeners.get(event).forEach(EventListener::handler);
+        List<BaseEvent> reEvents = new ArrayList<>();
+        baseEvents.drainTo(reEvents);
+        return reEvents;
     }
 
     @Override
-    public void sendToWorkflowScheduler(BaseEvent event) {
-        if (!check(event)) {
-            Log.error("event type not found");
+    public void sendEvent(BaseEvent event, Class<? extends BaseEvent> eventType) {
+        if (!check(event.getClass())) {
+            Log.error("事件不存在：" + event);
             return;
         }
-        workFlowEvents.add(event);
-        eventListeners.get(event).forEach(EventListener::handler);
-    }
-
-    @Override
-    public void sendToNodeScheduler(BaseEvent event) {
-        if (!check(event)) {
-            Log.error("event type not found");
-            return;
-        }
-        nodeEvents.add(event);
-        eventListeners.get(event).forEach(EventListener::handler);
-    }
-
-    @Override
-    public void sendTollmScheduler(BaseEvent event) {
-        if (!check(event)) {
-            Log.error("event type not found");
-            return;
-        }
-        llmEvents.add(event);
-        eventListeners.get(event).forEach(EventListener::handler);
-    }
-
-    @Override
-    public void sendToGateWay(BaseEvent event) {
-        if (!check(event)) {
-            Log.error("event type not found");
-            return;
-        }
-        gatewayEvents.add(event);
-        eventListeners.get(event).forEach(EventListener::handler);
-    }
-
-    @Override
-    public List<BaseEvent> getEvents(EventEnums eventEnums) {
-        return switch (eventEnums) {
-            case EventEnums.WORKFLOW_EVENT -> {
-                if (workFlowEvents.isEmpty()){
-                    yield new ArrayList<>();
-                }
-                ArrayList<BaseEvent> events = new ArrayList<>(workFlowEvents);
-                workFlowEvents.clear();
-                yield events;
-            }
-            case NODE_EVENT -> {
-                if (nodeEvents.isEmpty()){
-                    yield new ArrayList<>();
-                }
-                ArrayList<BaseEvent> events = new ArrayList<>(nodeEvents);
-                nodeEvents.clear();
-                yield events;
-            }
-            case USER_EVENT -> {
-                if (userEvents.isEmpty()){
-                    yield new ArrayList<>();
-                }
-                ArrayList<BaseEvent> events = new ArrayList<>(userEvents);
-                userEvents.clear();
-                yield events;
-            }
-            case LLM_EVENT -> {
-                if (llmEvents.isEmpty()){
-                    yield new ArrayList<>();
-                }
-                ArrayList<BaseEvent> events = new ArrayList<>(llmEvents);
-                llmEvents.clear();
-                yield events;
-            }
-            case GATEWAY_EVENT -> {
-                if (gatewayEvents.isEmpty()){
-                    yield new ArrayList<>();
-                }
-                ArrayList<BaseEvent> events = new ArrayList<>(gatewayEvents);
-                gatewayEvents.clear();
-                yield events;
-            }
-        };
+        events.get(eventType).add(event);
+        Log.info("发送事件：" + JSONUtil.toJsonStr(event));
+        eventListeners.get(eventType).forEach(EventListener::handler);
     }
 
     @Override
     public void init() {
-
+        events.put(WorkflowEvent.class, new LinkedBlockingDeque<>());
+        events.put(NodeEvent.class, new LinkedBlockingDeque<>());
+        events.put(LLMEvent.class, new LinkedBlockingDeque<>());
+        events.put(GatewayEvent.class, new LinkedBlockingDeque<>());
+        eventListeners.put(WorkflowEvent.class, new ArrayList<>());
+        eventListeners.put(NodeEvent.class, new ArrayList<>());
+        eventListeners.put(LLMEvent.class, new ArrayList<>());
+        eventListeners.put(GatewayEvent.class, new ArrayList<>());
+        registerEvent(WorkflowEvent.class);
+        registerEvent(NodeEvent.class);
+        registerEvent(LLMEvent.class);
+        registerEvent(GatewayEvent.class);
     }
 
     @Override
@@ -149,16 +79,39 @@ public class BaseDispatcher implements Dispatcher {
     }
 
     @Override
-    public void register(BaseEvent event) {
-        eventMap.put(event.getType(), event);
+    public void registerEvent(Class<? extends BaseEvent> eventType) {
+        eventSet.add(eventType);
     }
 
     @Override
-    public void unregister(BaseEvent event) {
-        eventMap.remove(event.getType());
+    public void unregisterEvent(Class<? extends BaseEvent> eventType) {
+        if (!check(eventType)){
+            Log.error("事件不存在：" + eventType);
+            return;
+        }
+        eventSet.remove(eventType);
     }
 
-    private boolean check(BaseEvent event) {
-        return eventMap.containsKey(event.getType());
+    @Override
+    public void registerListener(EventListener eventListener, Class<? extends BaseEvent> eventType) {
+        if (!check(eventType)){
+            Log.error("事件不存在：" + eventType);
+            return;
+        }
+        eventListeners.get(eventType).add(eventListener);
+    }
+
+    @Override
+    public void unregisterListener(EventListener eventListener, Class<? extends BaseEvent> eventType) {
+        if (!check(eventType)){
+            Log.error("事件不存在：" + eventType);
+            return;
+        }
+        eventListeners.get(eventType).remove(eventListener);
+    }
+
+
+    private boolean check(Class<? extends BaseEvent> eventType) {
+        return eventSet.contains(eventType);
     }
 }
