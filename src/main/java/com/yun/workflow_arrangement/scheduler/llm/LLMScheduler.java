@@ -41,6 +41,7 @@ public class LLMScheduler implements Scheduler, EventListener {
         dispatcher.registerEvent(ErrorLLMEvent.class);
         dispatcher.registerEvent(SuccessLLMEvent.class);
         dispatcher.registerEvent(ExecuteLLMEvent.class);
+
     }
 
     @Override
@@ -51,23 +52,25 @@ public class LLMScheduler implements Scheduler, EventListener {
 
     @Override
     public void handler() {
-        Collection<BaseEvent> events = dispatcher.getEvents(LLMEvent.class);
-        for (BaseEvent event : events) {
-            switch (event.getType()) {
-                case "execute_llm_event" -> {
-                    ExecuteLLMEvent executeLLMEvent = (ExecuteLLMEvent) event;
-                    doExecute(executeLLMEvent);
-                }
-                case "success_llm_event" -> {
-                    SuccessLLMEvent successLLMEvent = (SuccessLLMEvent) event;
-                    notifyNode(successLLMEvent);
-                }
-                case "error_llm_event" -> {
-                    ErrorLLMEvent errorLLMEvent = (ErrorLLMEvent) event;
-                    notifyNode(errorLLMEvent);
+        llmSchedulerThreadPoolExecutor.submit(() -> {
+            Collection<BaseEvent> events = dispatcher.getEvents(LLMEvent.class);
+            for (BaseEvent event : events) {
+                switch (event.getType()) {
+                    case "execute_llm_event" -> {
+                        ExecuteLLMEvent executeLLMEvent = (ExecuteLLMEvent) event;
+                        doExecute(executeLLMEvent);
+                    }
+                    case "success_llm_event" -> {
+                        SuccessLLMEvent successLLMEvent = (SuccessLLMEvent) event;
+                        notifyNode(successLLMEvent);
+                    }
+                    case "error_llm_event" -> {
+                        ErrorLLMEvent errorLLMEvent = (ErrorLLMEvent) event;
+                        notifyNode(errorLLMEvent);
+                    }
                 }
             }
-        }
+        });
     }
     private void notifyNode(ErrorLLMEvent errorLLMEvent) {
         LLMErrorEvent llmErrorEvent = LLMErrorEvent.builder()

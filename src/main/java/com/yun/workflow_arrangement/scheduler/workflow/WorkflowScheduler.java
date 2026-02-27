@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  *
@@ -38,6 +39,8 @@ import java.util.Objects;
 public class WorkflowScheduler implements Scheduler, EventListener {
     @Resource
     private Dispatcher dispatcher;
+    @Resource
+    private ThreadPoolExecutor workflowSchedulerThreadPoolExecutor;
 
     @Override
     public void init() {
@@ -56,30 +59,32 @@ public class WorkflowScheduler implements Scheduler, EventListener {
 
     @Override
     public void handler() {
-        Collection<BaseEvent> events = dispatcher.getEvents(WorkflowEvent.class);
-        for (BaseEvent event : events) {
-            switch (event.getType()) {
-                case "execute_workflow_event" -> {
-                    ExecuteWorkflowEvent executeWorkflowEvent = (ExecuteWorkflowEvent) event;
-                    executeWorkflowEvent.getContext().getWorkFlow().setStatus(WorkflowStatus.RUNNING);
-                    doExecute(executeWorkflowEvent);
-                }
-                case "next_node_event" -> {
-                    NextNodeEvent nextNodeEvent = (NextNodeEvent) event;
-                    executeNextNode(nextNodeEvent);
-                }
-                case "success_workflow_event" -> {
-                    SuccessWorkflowEvent successWorkflowEvent = (SuccessWorkflowEvent) event;
-                    successWorkflowEvent.getContext().getWorkFlow().setStatus(WorkflowStatus.SUCCESS);
-                    notifyGateway(successWorkflowEvent);
-                }
-                case "error_workflow_event" -> {
-                    ErrorWorkflowEvent errorWorkflowEvent = (ErrorWorkflowEvent) event;
-                    errorWorkflowEvent.getContext().getWorkFlow().setStatus(WorkflowStatus.ERROR);
-                    notifyGateway(errorWorkflowEvent);
+        workflowSchedulerThreadPoolExecutor.submit(() -> {
+            Collection<BaseEvent> events = dispatcher.getEvents(WorkflowEvent.class);
+            for (BaseEvent event : events) {
+                switch (event.getType()) {
+                    case "execute_workflow_event" -> {
+                        ExecuteWorkflowEvent executeWorkflowEvent = (ExecuteWorkflowEvent) event;
+                        executeWorkflowEvent.getContext().getWorkFlow().setStatus(WorkflowStatus.RUNNING);
+                        doExecute(executeWorkflowEvent);
+                    }
+                    case "next_node_event" -> {
+                        NextNodeEvent nextNodeEvent = (NextNodeEvent) event;
+                        executeNextNode(nextNodeEvent);
+                    }
+                    case "success_workflow_event" -> {
+                        SuccessWorkflowEvent successWorkflowEvent = (SuccessWorkflowEvent) event;
+                        successWorkflowEvent.getContext().getWorkFlow().setStatus(WorkflowStatus.SUCCESS);
+                        notifyGateway(successWorkflowEvent);
+                    }
+                    case "error_workflow_event" -> {
+                        ErrorWorkflowEvent errorWorkflowEvent = (ErrorWorkflowEvent) event;
+                        errorWorkflowEvent.getContext().getWorkFlow().setStatus(WorkflowStatus.ERROR);
+                        notifyGateway(errorWorkflowEvent);
+                    }
                 }
             }
-        }
+        });
     }
 
     private void notifyGateway(WorkflowEvent workflowEvent) {

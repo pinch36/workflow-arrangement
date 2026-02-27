@@ -62,41 +62,43 @@ public class NodeScheduler implements Scheduler, EventListener {
 
     @Override
     public void handler() {
-        Collection<BaseEvent> events = dispatcher.getEvents(NodeEvent.class);
-        for (BaseEvent event : events) {
-            switch (event.getType()) {
-                case "execute_node_event" -> {
-                    ExecuteNodeEvent executeNodeEvent = (ExecuteNodeEvent) event;
-                    executeNodeEvent.getNode().setStatus(NodeStatus.RUNNING);
-                    doExecute(executeNodeEvent);
-                }
-                case "success_node_event" -> {
-                    SuccessNodeEvent successNodeEvent = (SuccessNodeEvent) event;
-                    successNodeEvent.getNode().setStatus(NodeStatus.SUCCESS);
-                    notifyWorkflow(successNodeEvent);
-                }
-                case "error_node_event" -> {
-                    ErrorNodeEvent errorNodeEvent = (ErrorNodeEvent) event;
-                    errorNodeEvent.getNode().setStatus(NodeStatus.ERROR);
-                    notifyWorkflow(errorNodeEvent);
-                }
-                case "llm_ready_event" -> {
-                    LLMReadyEvent llmReadyEvent = (LLMReadyEvent) event;
-                    LLMNode llmNode = (LLMNode) llmReadyEvent.getNode();
+        nodeSchedulerThreadPoolExecutor.submit(() -> {
+            Collection<BaseEvent> events = dispatcher.getEvents(NodeEvent.class);
+            for (BaseEvent event : events) {
+                switch (event.getType()) {
+                    case "execute_node_event" -> {
+                        ExecuteNodeEvent executeNodeEvent = (ExecuteNodeEvent) event;
+                        executeNodeEvent.getNode().setStatus(NodeStatus.RUNNING);
+                        doExecute(executeNodeEvent);
+                    }
+                    case "success_node_event" -> {
+                        SuccessNodeEvent successNodeEvent = (SuccessNodeEvent) event;
+                        successNodeEvent.getNode().setStatus(NodeStatus.SUCCESS);
+                        notifyWorkflow(successNodeEvent);
+                    }
+                    case "error_node_event" -> {
+                        ErrorNodeEvent errorNodeEvent = (ErrorNodeEvent) event;
+                        errorNodeEvent.getNode().setStatus(NodeStatus.ERROR);
+                        notifyWorkflow(errorNodeEvent);
+                    }
+                    case "llm_ready_event" -> {
+                        LLMReadyEvent llmReadyEvent = (LLMReadyEvent) event;
+                        LLMNode llmNode = (LLMNode) llmReadyEvent.getNode();
 //                    LLMResult llmResult = LLMResult.builder()
 //                            .chatResponse(llmReadyEvent.getChatResponse())
 //                            .text(llmReadyEvent.getChatResponse().getResult().getOutput().getText())
 //                            .build();
 //                    llmNode.setResult(llmResult);
-                    llmNode.setResult(LLMResult.builder().text("test").build());
-                    success(llmReadyEvent);
-                }
-                case "llm_error_node_event" -> {
-                    LLMErrorEvent llmErrorEvent = (LLMErrorEvent) event;
-                    error(llmErrorEvent);
+                        llmNode.setResult(LLMResult.builder().text("test").build());
+                        success(llmReadyEvent);
+                    }
+                    case "llm_error_node_event" -> {
+                        LLMErrorEvent llmErrorEvent = (LLMErrorEvent) event;
+                        error(llmErrorEvent);
+                    }
                 }
             }
-        }
+        });
     }
 
     private void notifyWorkflow(NodeEvent nodeEvent) {

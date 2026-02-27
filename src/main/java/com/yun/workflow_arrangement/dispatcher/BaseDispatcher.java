@@ -9,6 +9,7 @@ import com.yun.workflow_arrangement.dispatcher.event.llm.LLMEvent;
 import com.yun.workflow_arrangement.dispatcher.event.node.NodeEvent;
 import com.yun.workflow_arrangement.dispatcher.event.workflow.WorkflowEvent;
 import com.yun.workflow_arrangement.log.Log;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 
 /**
@@ -34,6 +36,8 @@ public class BaseDispatcher implements Dispatcher {
     private final Set<Class<? extends BaseEvent>> eventSet = new ConcurrentHashSet<>();
     private final Map<Class<? extends BaseEvent>, BlockingDeque<BaseEvent>> events = new ConcurrentHashMap<>();
     private final Map<Class<? extends BaseEvent>, List<EventListener>> eventListeners = new ConcurrentHashMap<>();
+    @Resource
+    private ExecutorService dispatcherThreadPoolExecutor;
 
     @Override
     public Collection<BaseEvent> getEvents(Class<? extends BaseEvent> eventType) {
@@ -54,7 +58,6 @@ public class BaseDispatcher implements Dispatcher {
         }
         events.get(eventType).add(event);
         Log.info("发送事件：" + JSONUtil.toJsonStr(event));
-        eventListeners.get(eventType).forEach(EventListener::handler);
     }
 
     @Override
@@ -71,6 +74,16 @@ public class BaseDispatcher implements Dispatcher {
         registerEvent(NodeEvent.class);
         registerEvent(LLMEvent.class);
         registerEvent(GatewayEvent.class);
+        dispatcherThreadPoolExecutor.submit(() -> {
+            while (true){
+                eventListeners.forEach((eventType, eventListeners) -> {
+                    if(events.get(eventType).isEmpty()){
+                        return;
+                    }
+                    eventListeners.forEach(EventListener::handler);
+                });
+            }
+        });
     }
 
     @Override

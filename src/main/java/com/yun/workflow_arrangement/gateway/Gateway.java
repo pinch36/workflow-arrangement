@@ -75,19 +75,21 @@ public class Gateway implements EventListener {
 
     @Override
     public void handler() {
-        Collection<BaseEvent> events = dispatcher.getEvents(GatewayEvent.class);
-        for (BaseEvent event : events) {
-            switch (event.getType()){
-                case "workflow_ready_event" -> {
-                    WorkflowReadyEvent workflowReadyEvent = (WorkflowReadyEvent) event;
-                    gatewayListeners.get(WorkflowReadyEvent.class).forEach(gatewayListener -> gatewayListener.handler(workflowReadyEvent));
-                }
-                case "workflow_error_event" -> {
-                    WorkflowErrorEvent workflowErrorEvent = (WorkflowErrorEvent) event;
-                    gatewayListeners.get(WorkflowErrorEvent.class).forEach(gatewayListener -> gatewayListener.handler(workflowErrorEvent));
+        gatewayThreadPoolExecutor.submit(() -> {
+            Collection<BaseEvent> events = dispatcher.getEvents(GatewayEvent.class);
+            for (BaseEvent event : events) {
+                switch (event.getType()){
+                    case "workflow_ready_event" -> {
+                        WorkflowReadyEvent workflowReadyEvent = (WorkflowReadyEvent) event;
+                        gatewayListeners.get(WorkflowReadyEvent.class).forEach(gatewayListener -> gatewayListener.handler(workflowReadyEvent));
+                    }
+                    case "workflow_error_event" -> {
+                        WorkflowErrorEvent workflowErrorEvent = (WorkflowErrorEvent) event;
+                        gatewayListeners.get(WorkflowErrorEvent.class).forEach(gatewayListener -> gatewayListener.handler(workflowErrorEvent));
+                    }
                 }
             }
-        }
+        });
     }
 
     public void registerGatewayListener(GatewayListener gatewayListener, Class<? extends BaseEvent> eventType) {
